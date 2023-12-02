@@ -14,7 +14,7 @@ public class Selection : MonoBehaviour {
     }
 
     [SerializeField]
-    bool mouseEnabled = false;
+    bool mouseEnabled = true;
     Vector3 lastMousePos = Vector3.zero;
 
 
@@ -70,7 +70,7 @@ public class Selection : MonoBehaviour {
                 StopCoroutine(keyDownCoroutines[key]);
                 keyDownCoroutines.Remove(key);
             } else if (Input.GetKeyDown(key)) {
-                mouseEnabled = false;
+                DisableMouse();
                 keyDownTime.Add(key, 0);
                 keyDownCoroutines.Add(key, StartCoroutine(HandleAcceleratedKeyboardMovement(key)));
             } else if (Input.GetKey(key)) {
@@ -98,12 +98,25 @@ public class Selection : MonoBehaviour {
 
     void MouseControls() {
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        if (mousePos != lastMousePos) mouseEnabled = true;
+        if (mousePos != lastMousePos && (
+        Input.GetAxis("Mouse X") != 0 ||
+        Input.GetAxis("Mouse Y") != 0
+        )) EnableMouse();
         lastMousePos = mousePos;
 
         if (!mouseEnabled || !IsMouseInGrid()) return;
         Vector3Int cellPos = grid.WorldToCell(mousePos);
         selected = cellPos;
+    }
+
+    void DisableMouse() {
+        mouseEnabled = false;
+        Cursor.visible = false;
+    }
+
+    void EnableMouse() {
+        mouseEnabled = true;
+        Cursor.visible = true;
     }
 
     bool IsMouseInGrid() {
