@@ -16,6 +16,11 @@ public class Selection : MonoBehaviour {
     [SerializeField]
     private bool mouseEnabled = true;
 
+    [SerializeField]
+    private bool loopOnX = true;
+    [SerializeField]
+    private bool loopOnY = false;
+
     public static readonly int MAX_X = 10;
     public static readonly int MIN_X = -11;
     public static readonly int MAX_Y = 1;
@@ -28,11 +33,26 @@ public class Selection : MonoBehaviour {
         grid = FindObjectOfType<Grid>();
     }
 
-    // Update is called once per frame
     void Update() {
         MouseControls();
         KeyBoardControls();
+        HandleLooping();
+        Clamp();
+    }
 
+    private void HandleLooping() {
+        if (loopOnX) {
+            if (selected.x > MAX_X) selected.x = MIN_X;
+            else if (selected.x < MIN_X) selected.x = MAX_X;
+        }
+
+        if (loopOnY) {
+            if (selected.y > MAX_Y) selected.y = MIN_Y;
+            else if (selected.y < MIN_Y) selected.y = MAX_Y;
+        }
+    }
+
+    private void Clamp() {
         selected.x = Mathf.Clamp(selected.x, MIN_X, MAX_X);
         selected.y = Mathf.Clamp(selected.y, MIN_Y, MAX_Y);
     }
