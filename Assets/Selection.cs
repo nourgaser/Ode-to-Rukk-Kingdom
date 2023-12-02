@@ -14,33 +14,39 @@ public class Selection : MonoBehaviour {
     }
 
     [SerializeField]
-    private bool mouseEnabled = true;
+    bool mouseEnabled = false;
+    Vector3 lastMousePos = Vector3.zero;
+
 
     [SerializeField]
-    private bool loopOnX = true;
+    bool loopOnX = true;
     [SerializeField]
-    private bool loopOnY = false;
+    bool loopOnY = false;
 
     public static readonly int MAX_X = 10;
     public static readonly int MIN_X = -11;
     public static readonly int MAX_Y = 1;
     public static readonly int MIN_Y = -3;
 
-    private Grid grid;
+    Grid grid;
 
-    // Start is called before the first frame update
+    Dictionary<KeyCode, float> keyDownTime = new Dictionary<KeyCode, float>();
+    KeyCode[] keys = new KeyCode[] { KeyCode.UpArrow, KeyCode.DownArrow, KeyCode.LeftArrow, KeyCode.RightArrow };
+
+    Dictionary<KeyCode, Coroutine> keyDownCoroutines = new Dictionary<KeyCode, Coroutine>();
+
     void Start() {
         grid = FindObjectOfType<Grid>();
     }
 
     void Update() {
+        KeyboardControls();
         MouseControls();
-        KeyBoardControls();
-        HandleLooping();
+        Loop();
         Clamp();
     }
 
-    private void HandleLooping() {
+    void Loop() {
         if (loopOnX) {
             if (selected.x > MAX_X) selected.x = MIN_X;
             else if (selected.x < MIN_X) selected.x = MAX_X;
@@ -52,31 +58,47 @@ public class Selection : MonoBehaviour {
         }
     }
 
-    private void Clamp() {
+    void Clamp() {
         selected.x = Mathf.Clamp(selected.x, MIN_X, MAX_X);
         selected.y = Mathf.Clamp(selected.y, MIN_Y, MAX_Y);
     }
 
-    private void KeyBoardControls() {
-        bool changed = Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow);
-
-        if (Input.GetKeyDown(KeyCode.UpArrow)) {
-            selected.y++;
-        } else if (Input.GetKeyDown(KeyCode.DownArrow)) {
-            selected.y--;
-        } else if (Input.GetKeyDown(KeyCode.LeftArrow)) {
-            selected.x--;
-        } else if (Input.GetKeyDown(KeyCode.RightArrow)) {
-            selected.x++;
+    void KeyboardControls() {
+        foreach (KeyCode key in keys) {
+            if (Input.GetKeyUp(key)) {
+                keyDownTime.Remove(key);
+                StopCoroutine(keyDownCoroutines[key]);
+                keyDownCoroutines.Remove(key);
+            } else if (Input.GetKeyDown(key)) {
+                mouseEnabled = false;
+                keyDownTime.Add(key, 0);
+                keyDownCoroutines.Add(key, StartCoroutine(HandleAcceleratedKeyboardMovement(key)));
+            } else if (Input.GetKey(key)) {
+                keyDownTime[key] += Time.deltaTime;
+            }
         }
-
-        if (changed) mouseEnabled = false;
     }
 
-    Vector3 lastMousePos = Vector3.zero;
-    private void MouseControls() {
+    IEnumerator HandleAcceleratedKeyboardMovement(KeyCode code) {
+        if (code == KeyCode.UpArrow) {
+            selected.y++;
+        } else if (code == KeyCode.DownArrow) {
+            selected.y--;
+        } else if (code == KeyCode.LeftArrow) {
+            selected.x--;
+        } else if (code == KeyCode.RightArrow) {
+            selected.x++;
+        } else yield break;
+
+        float waitTime = Mathf.Max(0.55f - keyDownTime[code] * 0.3f, 0.1f);
+        Debug.Log($"Waiting {waitTime}s, keyDownTime: {keyDownTime[code]}s, code: {code}");
+        yield return new WaitForSeconds(waitTime);
+        keyDownCoroutines[code] = StartCoroutine(HandleAcceleratedKeyboardMovement(code));
+    }
+
+    void MouseControls() {
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        if (lastMousePos != mousePos) mouseEnabled = true;
+        if (mousePos != lastMousePos) mouseEnabled = true;
         lastMousePos = mousePos;
 
         if (!mouseEnabled || !IsMouseInGrid()) return;
@@ -84,7 +106,7 @@ public class Selection : MonoBehaviour {
         selected = cellPos;
     }
 
-    private bool IsMouseInGrid() {
+    bool IsMouseInGrid() {
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         Vector3Int cellPos = grid.WorldToCell(mousePos);
         return cellPos.x >= MIN_X && cellPos.x <= MAX_X && cellPos.y >= MIN_Y && cellPos.y <= MAX_Y;
